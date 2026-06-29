@@ -55,3 +55,24 @@ export function selectWhere<T>(
     .prepare(`SELECT * FROM ${table}${clause}${order}`)
     .all(where as Record<string, SqlValue>) as T[];
 }
+
+export function update(
+  db: Db,
+  table: string,
+  changes: object,
+  where: object,
+): void {
+  const setClause = Object.keys(changes)
+    .map((c) => `${c} = @${c}`)
+    .join(", ");
+  const whereClause = Object.keys(where)
+    .map((c) => `${c} = @where_${c}`)
+    .join(" AND ");
+
+  const params: Record<string, SqlValue> = { ...changes } as Record<string, SqlValue>;
+  for (const [key, value] of Object.entries(where)) {
+    params[`where_${key}`] = value as SqlValue;
+  }
+
+  db.prepare(`UPDATE ${table} SET ${setClause} WHERE ${whereClause}`).run(params);
+}

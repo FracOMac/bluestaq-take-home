@@ -6,7 +6,10 @@ import { createDb } from "../db.js";
 
 const buildApp = (): Express => createApp(createDb(":memory:"));
 
-async function tokenFor(app: Express, email = "ryan@example.com"): Promise<string> {
+const RYAN_EMAIL = "ryan@example.com";
+const GRACE_EMAIL = "grace@example.com"
+
+async function registerTestUser(app: Express, email: string): Promise<string> {
   const res = await request(app)
     .post("/auth/register")
     .send({ email, password: "password123" });
@@ -16,8 +19,8 @@ async function tokenFor(app: Express, email = "ryan@example.com"): Promise<strin
 describe("notes", () => {
   it("creates a note for the caller and lists only their own", async () => {
     const app = buildApp();
-    const ryanToken = await tokenFor(app);
-    const graceToken = await tokenFor(app, "grace@example.com");
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
 
     const created = await request(app)
       .post("/notes")
@@ -40,8 +43,8 @@ describe("notes", () => {
 
   it("fetches a note by id for its owner, but 404s for anyone else", async () => {
     const app = buildApp();
-    const ryanToken = await tokenFor(app);
-    const graceToken = await tokenFor(app, "grace@example.com");
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
 
     const created = await request(app)
       .post("/notes")
@@ -59,6 +62,41 @@ describe("notes", () => {
       .get(`/notes/${id}`)
       .set("Authorization", `Bearer ${graceToken}`);
     expect(asOther.status).toBe(404);
+  });
+
+  it("updates a note owned by the caller", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+
+    const created = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "draft", content: "v1" });
+
+    const updated = await request(app)
+      .patch(`/notes/${created.body.id}`)
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "final", content: "v2" });
+    expect(updated.status).toBe(200);
+    expect(updated.body.title).toBe("final");
+    expect(updated.body.content).toBe("v2");
+  });
+
+  it("404s when updating a note the caller doesn't own", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
+
+    const created = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "ryan's note" });
+
+    const res = await request(app)
+      .patch(`/notes/${created.body.id}`)
+      .set("Authorization", `Bearer ${graceToken}`)
+      .send({ title: "hijacked" });
+    expect(res.status).toBe(404);
   });
 
   it("requires authentication", async () => {

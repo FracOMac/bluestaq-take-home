@@ -1,7 +1,12 @@
 import type { RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
-import type { CreateNoteRequest, Note, Visibility } from "@team-notes/shared";
-import { insert, selectWhere, type Db } from "../db.js";
+import type {
+  CreateNoteRequest,
+  Note,
+  UpdateNoteRequest,
+  Visibility,
+} from "@team-notes/shared";
+import { insert, selectWhere, update, type Db } from "../db.js";
 
 interface NoteRow {
   id: string;
@@ -69,6 +74,61 @@ export function getNote(db: Db): RequestHandler {
       return;
     }
     res.json(toNote(rows[0]));
+  };
+}
+
+export function updateNote(db: Db): RequestHandler {
+  return (req, res) => {
+    const { title, content } = req.body ?? {};
+
+    const updates: UpdateNoteRequest = {};
+    if (title !== undefined) {
+      if (typeof title !== "string" || title.trim() === "") {
+        res.status(400).json({ error: "title must be a non-empty string" });
+        return;
+      }
+      updates.title = title.trim();
+    }
+    if (content !== undefined) {
+      if (typeof content !== "string") {
+        res.status(400).json({ error: "content must be a string" });
+        return;
+      }
+      updates.content = content;
+    }
+    if (updates.title === undefined && updates.content === undefined) {
+      res.status(400).json({ error: "no updatable fields provided" });
+      return;
+    }
+
+    const rows = selectWhere<NoteRow>(db, "notes", {
+      id: req.params.id,
+      owner_id: req.userId,
+    });
+    const note = rows[0];
+    if (!note) {
+      res.status(404).json({ error: "note not found" });
+      return;
+    }
+
+    const updated: NoteRow = {
+      ...note,
+      title: updates.title ?? note.title,
+      content: updates.content ?? note.content,
+      updated_at: new Date().toISOString(),
+    };
+    update(
+      db,
+      "notes",
+      {
+        title: updated.title,
+        content: updated.content,
+        updated_at: updated.updated_at,
+      },
+      { id: updated.id },
+    );
+
+    res.json(toNote(updated));
   };
 }
 
