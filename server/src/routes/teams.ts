@@ -137,6 +137,30 @@ export function addMember(db: Db): RequestHandler {
   };
 }
 
+export function listMembers(db: Db): RequestHandler {
+  return (req, res) => {
+    const teamId = req.params.id;
+
+    // only members may view the roster (non-members read as 404)
+    const membership = selectWhere(db, "team_members", {
+      team_id: teamId,
+      user_id: req.userId,
+    });
+    if (!membership[0]) {
+      res.status(404).json({ error: "team not found" });
+      return;
+    }
+
+    const members = selectJoin<TeamMember>(db, {
+      from: "team_members m JOIN users u ON u.id = m.user_id",
+      columns: "u.id, u.email, m.role",
+      where: { "m.team_id": teamId },
+      orderBy: "u.email",
+    });
+    res.json(members);
+  };
+}
+
 export function listTeams(db: Db): RequestHandler {
   return (req, res) => {
     const rows = selectJoin<TeamRow>(db, {

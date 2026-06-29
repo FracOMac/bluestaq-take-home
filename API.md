@@ -20,6 +20,7 @@ password gets hashed (bcrypt), token is a signed JWT. nothing fancy.
 POST /teams                {name}      creator becomes the owner
 GET  /teams                            teams I'm a member of
 GET  /teams/:id                        members only
+GET  /teams/:id/members                members only, lists the team's members
 POST /teams/:id/members    {email}     owner only, adds an existing user
 
 ## notes

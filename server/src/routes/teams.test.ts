@@ -92,6 +92,37 @@ describe("teams", () => {
     expect(denied.status).toBe(403);
   });
 
+  it("lists a team's members to members, 404 to non-members", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
+    const carolToken = await registerTestUser(app, "carol@example.com");
+
+    const team = await request(app)
+      .post("/teams")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ name: "Platform" });
+    await request(app)
+      .post(`/teams/${team.body.id}/members`)
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ email: GRACE_EMAIL });
+
+    // grace is a member (not owner) and can still see the roster
+    const members = await request(app)
+      .get(`/teams/${team.body.id}/members`)
+      .set("Authorization", `Bearer ${graceToken}`);
+    expect(members.status).toBe(200);
+    const roleByEmail = Object.fromEntries(
+      members.body.map((m: { email: string; role: string }) => [m.email, m.role]),
+    );
+    expect(roleByEmail).toEqual({ [RYAN_EMAIL]: "owner", [GRACE_EMAIL]: "member" });
+
+    const denied = await request(app)
+      .get(`/teams/${team.body.id}/members`)
+      .set("Authorization", `Bearer ${carolToken}`);
+    expect(denied.status).toBe(404);
+  });
+
   it("requires authentication", async () => {
     const res = await request(buildApp()).post("/teams").send({ name: "Nope" });
     expect(res.status).toBe(401);

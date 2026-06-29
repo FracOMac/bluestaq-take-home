@@ -79,6 +79,9 @@ export const api = {
   getTeam(id: string) {
     return request<Team>(`/teams/${id}`)
   },
+  listTeamMembers(id: string) {
+    return request<TeamMember[]>(`/teams/${id}/members`)
+  },
   createTeam(body: CreateTeamRequest) {
     return request<Team>('/teams', { method: 'POST', body })
   },
