@@ -62,6 +62,36 @@ describe("teams", () => {
     expect(asOther.status).toBe(404);
   });
 
+  it("lets the owner add an existing user, but not non-owner members", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
+    await registerTestUser(app, "carol@example.com");
+
+    const team = await request(app)
+      .post("/teams")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ name: "Platform" });
+
+    const added = await request(app)
+      .post(`/teams/${team.body.id}/members`)
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ email: GRACE_EMAIL });
+    expect(added.status).toBe(201);
+    expect(added.body).toEqual({
+      id: expect.any(String),
+      email: GRACE_EMAIL,
+      role: "member",
+    });
+
+    // grace is now a member but not the owner, so she can't add anyone
+    const denied = await request(app)
+      .post(`/teams/${team.body.id}/members`)
+      .set("Authorization", `Bearer ${graceToken}`)
+      .send({ email: "carol@example.com" });
+    expect(denied.status).toBe(403);
+  });
+
   it("requires authentication", async () => {
     const res = await request(buildApp()).post("/teams").send({ name: "Nope" });
     expect(res.status).toBe(401);

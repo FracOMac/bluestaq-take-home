@@ -1,7 +1,13 @@
 import type { RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
-import type { CreateTeamRequest, Team, TeamRole } from "@team-notes/shared";
-import { insert, selectJoin, type Db } from "../db.js";
+import type {
+  AddMemberRequest,
+  CreateTeamRequest,
+  Team,
+  TeamMember,
+  TeamRole,
+} from "@team-notes/shared";
+import { insert, selectWhere, selectJoin, type Db } from "../db.js";
 
 // a team plus the caller's role in it
 const TEAMS_FROM = "teams t JOIN team_members m ON m.team_id = t.id";
@@ -70,6 +76,64 @@ export function getTeam(db: Db): RequestHandler {
       return;
     }
     res.json(toTeam(rows[0]));
+  };
+}
+
+export function addMember(db: Db): RequestHandler {
+  return (req, res) => {
+    const { email } = req.body ?? {};
+    if (typeof email !== "string" || email.trim() === "") {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+    const request: AddMemberRequest = { email: email.toLowerCase().trim() };
+    const teamId = req.params.id;
+
+    // caller must be the team's owner (non-members read as 404, no leak)
+    const membership = selectWhere<{ role: TeamRole }>(db, "team_members", {
+      team_id: teamId,
+      user_id: req.userId,
+    });
+    if (!membership[0]) {
+      res.status(404).json({ error: "team not found" });
+      return;
+    }
+    if (membership[0].role !== "owner") {
+      res.status(403).json({ error: "only the team owner can add members" });
+      return;
+    }
+
+    // the user being added must already exist
+    const users = selectWhere<{ id: string; email: string }>(db, "users", {
+      email: request.email,
+    });
+    const user = users[0];
+    if (!user) {
+      res.status(404).json({ error: "user not found" });
+      return;
+    }
+
+    const already = selectWhere(db, "team_members", {
+      team_id: teamId,
+      user_id: user.id,
+    });
+    if (already[0]) {
+      res.status(409).json({ error: "user is already a member" });
+      return;
+    }
+
+    insert(db, "team_members", {
+      team_id: teamId,
+      user_id: user.id,
+      role: "member",
+    });
+
+    const member: TeamMember = {
+      id: user.id,
+      email: user.email,
+      role: "member",
+    };
+    res.status(201).json(member);
   };
 }
 
