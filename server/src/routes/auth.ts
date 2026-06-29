@@ -2,7 +2,7 @@ import type { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import type { AuthResponse, User } from "@team-notes/shared";
-import type { Db } from "../db.js";
+import { insert, type Db } from "../db.js";
 import { signToken } from "../token.js";
 
 export function register(db: Db): RequestHandler {
@@ -25,9 +25,12 @@ export function register(db: Db): RequestHandler {
       createdAt: new Date().toISOString(),
     };
     const passwordHash = await bcrypt.hash(password, 10);
-    db.prepare(
-      "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
-    ).run(user.id, user.email, passwordHash, user.createdAt);
+    insert(db, "users", {
+      id: user.id,
+      email: user.email,
+      password_hash: passwordHash,
+      created_at: user.createdAt,
+    });
 
     const body: AuthResponse = { token: signToken(user.id), user };
     res.status(201).json(body);

@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 
 export type Db = Database.Database;
 
-/** Open a SQLite database and ensure the schema exists. Use ":memory:" in tests. */
+/** Open a SQLite database and ensure the schema exists.*/
 export function createDb(path: string): Db {
   const db = new Database(path);
   db.pragma("journal_mode = WAL");
@@ -13,6 +13,45 @@ export function createDb(path: string): Db {
       password_hash TEXT NOT NULL,
       created_at    TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS notes (
+      id         TEXT PRIMARY KEY,
+      title      TEXT NOT NULL,
+      content    TEXT NOT NULL DEFAULT '',
+      owner_id   TEXT NOT NULL REFERENCES users(id),
+      team_id    TEXT,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notes_owner ON notes(owner_id);
   `);
   return db;
+}
+
+type SqlValue = string | number | bigint | Buffer | null;
+
+export function insert(db: Db, table: string, row: object): void {
+  const cols = Object.keys(row);
+  const placeholders = cols.map((c) => `@${c}`).join(", ");
+  db.prepare(
+    `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${placeholders})`,
+  ).run(row as Record<string, SqlValue>);
+}
+
+export function selectWhere<T>(
+  db: Db,
+  table: string,
+  where: object,
+  orderBy?: string,
+): T[] {
+  const cols = Object.keys(where);
+  const clause = cols.length
+    ? ` WHERE ${cols.map((c) => `${c} = @${c}`).join(" AND ")}`
+    : "";
+  const order = orderBy ? ` ORDER BY ${orderBy}` : "";
+  return db
+    .prepare(`SELECT * FROM ${table}${clause}${order}`)
+    .all(where as Record<string, SqlValue>) as T[];
 }
