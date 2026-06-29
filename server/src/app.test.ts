@@ -28,3 +28,37 @@ describe("POST /auth/register", () => {
     expect(JSON.stringify(res.body)).not.toContain("password123");
   });
 });
+
+describe("POST /auth/login", () => {
+  const creds = { email: "ada@example.com", password: "password123" };
+
+  it("returns a token and user for valid credentials", async () => {
+    const app = buildApp();
+    await request(app).post("/auth/register").send(creds);
+
+    const res = await request(app).post("/auth/login").send(creds);
+
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeTypeOf("string");
+    expect(res.body.user.email).toBe("ada@example.com");
+  });
+
+  it("rejects a wrong password with 401", async () => {
+    const app = buildApp();
+    await request(app).post("/auth/register").send(creds);
+
+    const res = await request(app)
+      .post("/auth/login")
+      .send({ email: creds.email, password: "wrongpassword" });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects an unknown email with 401", async () => {
+    const res = await request(buildApp())
+      .post("/auth/login")
+      .send({ email: "nobody@example.com", password: "password123" });
+
+    expect(res.status).toBe(401);
+  });
+});
