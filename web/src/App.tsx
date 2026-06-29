@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Nav } from './components/Nav'
 import { LoginPage } from './pages/LoginPage'
 import { NotesPage } from './pages/NotesPage'
+import { NoteEditorPage } from './pages/NoteEditorPage'
 import { TeamsPage } from './pages/TeamsPage'
 
 function App() {
@@ -13,6 +14,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/notes" replace />} />
           <Route path="/notes" element={<NotesPage />} />
+          <Route path="/notes/new" element={<NoteEditorPage />} />
+          <Route path="/notes/:id/edit" element={<NoteEditorPage />} />
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/login" element={<LoginPage />} />
         </Routes>
