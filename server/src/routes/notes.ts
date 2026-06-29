@@ -6,7 +6,7 @@ import type {
   UpdateNoteRequest,
   Visibility,
 } from "@team-notes/shared";
-import { insert, selectWhere, update, type Db } from "../db.js";
+import { insert, selectWhere, update, remove, type Db } from "../db.js";
 
 interface NoteRow {
   id: string;
@@ -129,6 +129,20 @@ export function updateNote(db: Db): RequestHandler {
     );
 
     res.json(toNote(updated));
+  };
+}
+
+export function deleteNote(db: Db): RequestHandler {
+  return (req, res) => {
+    const deleted = remove(db, "notes", {
+      id: req.params.id,
+      owner_id: req.userId,
+    });
+    if (deleted === 0) {
+      res.status(404).json({ error: "note not found" });
+      return;
+    }
+    res.status(204).end();
   };
 }
 

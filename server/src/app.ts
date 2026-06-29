@@ -3,7 +3,13 @@ import type { HealthResponse } from "@team-notes/shared";
 import type { Db } from "./db.js";
 import { requireAuth } from "./requireAuth.js";
 import { register, login } from "./routes/auth.js";
-import { createNote, listNotes, getNote, updateNote } from "./routes/notes.js";
+import {
+  createNote,
+  listNotes,
+  getNote,
+  updateNote,
+  deleteNote,
+} from "./routes/notes.js";
 
 export function createApp(db: Db) {
   const app = express();
@@ -21,6 +27,7 @@ export function createApp(db: Db) {
   app.get("/notes", requireAuth, listNotes(db));
   app.get("/notes/:id", requireAuth, getNote(db));
   app.patch("/notes/:id", requireAuth, updateNote(db));
+  app.delete("/notes/:id", requireAuth, deleteNote(db));
 
   return app;
 }

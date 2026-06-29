@@ -76,3 +76,13 @@ export function update(
 
   db.prepare(`UPDATE ${table} SET ${setClause} WHERE ${whereClause}`).run(params);
 }
+
+export function remove(db: Db, table: string, where: object): number {
+  const whereClause = Object.keys(where)
+    .map((c) => `${c} = @${c}`)
+    .join(" AND ");
+  const result = db
+    .prepare(`DELETE FROM ${table} WHERE ${whereClause}`)
+    .run(where as Record<string, SqlValue>);
+  return result.changes;
+}

@@ -99,6 +99,50 @@ describe("notes", () => {
     expect(res.status).toBe(404);
   });
 
+  it("deletes a note owned by the caller", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+
+    const created = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "temp" });
+    const id = created.body.id;
+
+    const deleted = await request(app)
+      .delete(`/notes/${id}`)
+      .set("Authorization", `Bearer ${ryanToken}`);
+    expect(deleted.status).toBe(204);
+
+    const after = await request(app)
+      .get(`/notes/${id}`)
+      .set("Authorization", `Bearer ${ryanToken}`);
+    expect(after.status).toBe(404);
+  });
+
+  it("404s when deleting a note the caller doesn't own", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
+
+    const created = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "ryan's note" });
+    const id = created.body.id;
+
+    const deleted = await request(app)
+      .delete(`/notes/${id}`)
+      .set("Authorization", `Bearer ${graceToken}`);
+    expect(deleted.status).toBe(404);
+
+    // still there for its owner
+    const stillThere = await request(app)
+      .get(`/notes/${id}`)
+      .set("Authorization", `Bearer ${ryanToken}`);
+    expect(stillThere.status).toBe(200);
+  });
+
   it("requires authentication", async () => {
     const res = await request(buildApp()).get("/notes");
     expect(res.status).toBe(401);
