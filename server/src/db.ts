@@ -26,6 +26,19 @@ export function createDb(path: string): Db {
     );
 
     CREATE INDEX IF NOT EXISTS idx_notes_owner ON notes(owner_id);
+
+    CREATE TABLE IF NOT EXISTS teams (
+      id         TEXT PRIMARY KEY,
+      name       TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS team_members (
+      team_id TEXT NOT NULL REFERENCES teams(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      role    TEXT NOT NULL,
+      PRIMARY KEY (team_id, user_id)
+    );
   `);
   return db;
 }
