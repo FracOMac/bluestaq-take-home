@@ -32,16 +32,62 @@ function toNote(row: NoteRow): Note {
   };
 }
 
+function isTeamMember(db: Db, teamId: string, userId: string): boolean {
+  return Boolean(
+    selectWhere(db, "team_members", { team_id: teamId, user_id: userId })[0],
+  );
+}
+
+// A note is visible to a user if they own it, or it's a team note for a team
+// they belong to. Shared by the list and get-by-id queries.
+const VISIBLE_TO = `(
+  owner_id = @userId
+  OR (visibility = 'team' AND team_id IN (
+    SELECT team_id FROM team_members WHERE user_id = @userId
+  ))
+)`;
+
+function listVisibleNotes(db: Db, userId: string): NoteRow[] {
+  return db
+    .prepare(`SELECT * FROM notes WHERE ${VISIBLE_TO} ORDER BY created_at DESC`)
+    .all({ userId }) as NoteRow[];
+}
+
+function findReadableNote(
+  db: Db,
+  id: string,
+  userId: string,
+): NoteRow | undefined {
+  return db
+    .prepare(`SELECT * FROM notes WHERE id = @id AND ${VISIBLE_TO}`)
+    .get({ id, userId }) as NoteRow | undefined;
+}
+
 export function createNote(db: Db): RequestHandler {
   return (req, res) => {
-    const { title, content } = req.body ?? {};
+    const { title, content, visibility, teamId } = req.body ?? {};
     if (typeof title !== "string" || title.trim() === "") {
       res.status(400).json({ error: "title is required" });
       return;
     }
+
+    const isTeam = visibility === "team";
+    if (isTeam) {
+      if (typeof teamId !== "string" || teamId === "") {
+        res.status(400).json({ error: "teamId is required for team notes" });
+        return;
+      }
+      if (!isTeamMember(db, teamId, req.userId!)) {
+        res.status(403).json({ error: "you are not a member of that team" });
+        return;
+      }
+    }
+
     const request: CreateNoteRequest = {
       title: title.trim(),
       content: typeof content === "string" ? content : "",
+      visibility: isTeam ? "team" : "private",
+      ...(isTeam ? { teamId } : {}),
     };
 
     const now = new Date().toISOString();
@@ -50,8 +96,8 @@ export function createNote(db: Db): RequestHandler {
       title: request.title,
       content: request.content ?? "",
       owner_id: req.userId!,
-      team_id: null,
-      visibility: "private",
+      team_id: request.teamId ?? null,
+      visibility: request.visibility ?? "private",
       created_at: now,
       updated_at: now,
     };
@@ -63,17 +109,13 @@ export function createNote(db: Db): RequestHandler {
 
 export function getNote(db: Db): RequestHandler {
   return (req, res) => {
-    // Match on id AND owner, so a note the caller doesn't own reads as 404
-    // (no leaking that someone else's note exists).
-    const rows = selectWhere<NoteRow>(db, "notes", {
-      id: req.params.id,
-      owner_id: req.userId,
-    });
-    if (!rows[0]) {
+    // Readable if owned or shared via a team; otherwise 404 (no existence leak).
+    const note = findReadableNote(db, String(req.params.id), req.userId!);
+    if (!note) {
       res.status(404).json({ error: "note not found" });
       return;
     }
-    res.json(toNote(rows[0]));
+    res.json(toNote(note));
   };
 }
 
@@ -148,12 +190,7 @@ export function deleteNote(db: Db): RequestHandler {
 
 export function listNotes(db: Db): RequestHandler {
   return (req, res) => {
-    const rows = selectWhere<NoteRow>(
-      db,
-      "notes",
-      { owner_id: req.userId },
-      "created_at DESC",
-    );
+    const rows = listVisibleNotes(db, req.userId!);
     res.json(rows.map(toNote));
   };
 }

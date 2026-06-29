@@ -8,6 +8,7 @@ const buildApp = (): Express => createApp(createDb(":memory:"));
 
 const RYAN_EMAIL = "ryan@example.com";
 const GRACE_EMAIL = "grace@example.com";
+const CAROL_EMAIL = "carol@example.com";
 
 async function registerTestUser(app: Express, email: string): Promise<string> {
   const res = await request(app)
@@ -66,7 +67,7 @@ describe("teams", () => {
     const app = buildApp();
     const ryanToken = await registerTestUser(app, RYAN_EMAIL);
     const graceToken = await registerTestUser(app, GRACE_EMAIL);
-    await registerTestUser(app, "carol@example.com");
+    await registerTestUser(app, CAROL_EMAIL);
 
     const team = await request(app)
       .post("/teams")
@@ -88,7 +89,7 @@ describe("teams", () => {
     const denied = await request(app)
       .post(`/teams/${team.body.id}/members`)
       .set("Authorization", `Bearer ${graceToken}`)
-      .send({ email: "carol@example.com" });
+      .send({ email: CAROL_EMAIL });
     expect(denied.status).toBe(403);
   });
 
@@ -96,7 +97,7 @@ describe("teams", () => {
     const app = buildApp();
     const ryanToken = await registerTestUser(app, RYAN_EMAIL);
     const graceToken = await registerTestUser(app, GRACE_EMAIL);
-    const carolToken = await registerTestUser(app, "carol@example.com");
+    const carolToken = await registerTestUser(app, CAROL_EMAIL);
 
     const team = await request(app)
       .post("/teams")

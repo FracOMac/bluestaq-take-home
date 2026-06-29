@@ -8,6 +8,7 @@ const buildApp = (): Express => createApp(createDb(":memory:"));
 
 const RYAN_EMAIL = "ryan@example.com";
 const GRACE_EMAIL = "grace@example.com"
+const CAROL_EMAIL = "carol@example.com"
 
 async function registerTestUser(app: Express, email: string): Promise<string> {
   const res = await request(app)
@@ -141,6 +142,72 @@ describe("notes", () => {
       .get(`/notes/${id}`)
       .set("Authorization", `Bearer ${ryanToken}`);
     expect(stillThere.status).toBe(200);
+  });
+
+  it("creates a team note for a team you're in, but not one you're not", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
+    const team = await request(app)
+      .post("/teams")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ name: "Platform" });
+
+    const created = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "Shared", visibility: "team", teamId: team.body.id });
+    expect(created.status).toBe(201);
+    expect(created.body.visibility).toBe("team");
+    expect(created.body.teamId).toBe(team.body.id);
+
+    // grace isn't a member of ryan's team
+    const denied = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${graceToken}`)
+      .send({ title: "Sneaky", visibility: "team", teamId: team.body.id });
+    expect(denied.status).toBe(403);
+  });
+
+  it("shares a team note with team members for reading, not with outsiders", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
+    const carolToken = await registerTestUser(app, CAROL_EMAIL);
+
+    const team = await request(app)
+      .post("/teams")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ name: "Platform" });
+    await request(app)
+      .post(`/teams/${team.body.id}/members`)
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ email: GRACE_EMAIL });
+
+    const note = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "Shared", visibility: "team", teamId: team.body.id });
+
+    // grace is a member: sees it in the list and can fetch it by id
+    const graceList = await request(app)
+      .get("/notes")
+      .set("Authorization", `Bearer ${graceToken}`);
+    expect(graceList.body.map((n: { id: string }) => n.id)).toContain(note.body.id);
+    const graceGet = await request(app)
+      .get(`/notes/${note.body.id}`)
+      .set("Authorization", `Bearer ${graceToken}`);
+    expect(graceGet.status).toBe(200);
+
+    // carol is not a member: doesn't see it and gets 404 by id
+    const carolList = await request(app)
+      .get("/notes")
+      .set("Authorization", `Bearer ${carolToken}`);
+    expect(carolList.body).toHaveLength(0);
+    const carolGet = await request(app)
+      .get(`/notes/${note.body.id}`)
+      .set("Authorization", `Bearer ${carolToken}`);
+    expect(carolGet.status).toBe(404);
   });
 
   it("requires authentication", async () => {
