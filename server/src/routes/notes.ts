@@ -157,9 +157,7 @@ export function updateNote(db: Db): RequestHandler {
     }
     if (visibility !== undefined) {
       if (!isOwner) {
-        res
-          .status(403)
-          .json({ error: "only the owner can change visibility" });
+        res.status(403).json({ error: "only the owner can change visibility" });
         return;
       }
       if (visibility === "team") {

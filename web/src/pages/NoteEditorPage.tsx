@@ -23,7 +23,10 @@ export function NoteEditorPage() {
 
   useEffect(() => {
     if (!isAuthenticated) return
-    api.listTeams().then(setTeams).catch(() => {})
+    api
+      .listTeams()
+      .then(setTeams)
+      .catch(() => {})
   }, [isAuthenticated])
 
   useEffect(() => {

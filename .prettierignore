@@ -1,0 +1,7 @@
+node_modules
+dist
+package-lock.json
+*.sqlite
+
+# hand-aligned by hand; prettier collapses the spacing
+API.md

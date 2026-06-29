@@ -83,12 +83,17 @@ export function update(
     .map((c) => `${c} = @where_${c}`)
     .join(" AND ");
 
-  const params: Record<string, SqlValue> = { ...changes } as Record<string, SqlValue>;
+  const params: Record<string, SqlValue> = { ...changes } as Record<
+    string,
+    SqlValue
+  >;
   for (const [key, value] of Object.entries(where)) {
     params[`where_${key}`] = value as SqlValue;
   }
 
-  db.prepare(`UPDATE ${table} SET ${setClause} WHERE ${whereClause}`).run(params);
+  db.prepare(`UPDATE ${table} SET ${setClause} WHERE ${whereClause}`).run(
+    params,
+  );
 }
 
 export function remove(db: Db, table: string, where: object): number {

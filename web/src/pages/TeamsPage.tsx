@@ -17,7 +17,9 @@ export function TeamsPage() {
       .listTeams()
       .then(setTeams)
       .catch((err) =>
-        setError(err instanceof ApiError ? err.message : 'Failed to load teams'),
+        setError(
+          err instanceof ApiError ? err.message : 'Failed to load teams',
+        ),
       )
       .finally(() => setLoading(false))
   }, [isAuthenticated])

@@ -50,7 +50,8 @@ members.
 ## Data model
 
 - `users` — id, email, password hash
-- `notes` — owner, optional team, visibility (`private` | `team`), last editor, timestamps
+- `notes` — owner, optional team, visibility (`private` | `team`), last editor,
+  timestamps
 - `teams` and `team_members` (role: `owner` | `member`)
 
 ## Authorization
@@ -61,28 +62,35 @@ the owner can change its visibility or delete it.
 
 ## Tests
 
-`npm test -w server` runs the Vitest suite against a fresh in-memory SQLite database, covering auth, notes
-CRUD, team membership, and the visibility rules.
+`npm test -w server` runs the Vitest suite against a fresh in-memory SQLite
+database, covering auth, notes CRUD, team membership, and the visibility rules.
 
 ## Decisions
 
-**Note visibility and authorization.** I spent a lot of time on the ability for users to make teams and either keep notes private or in teams. This expanded the needed api functionality by a lot, but it made it more interesting than just the super simple un-authenticated crud operations it could have been.
+**Note visibility and authorization.** I spent a lot of time on the ability for
+users to make teams and either keep notes private or in teams. This expanded the
+needed api functionality by a lot, but it made it more interesting than just the
+super simple un-authenticated crud operations it could have been.
 
-**Web frontend** This wasn't requested in the prompt, but building it allowed me to make sure the API was fully featured and usable and more easily identify where the gaps were vs my initial api design.
+**Web frontend** This wasn't requested in the prompt, but building it allowed me
+to make sure the API was fully featured and usable and more easily identify
+where the gaps were vs my initial api design.
 
 ## If I had more time
 
 - **Live updates.** Push changes to connected clients (Server-Sent Events is the
-  easy version) so edits show up
-  without a refresh. Real simultaneous co-editing (CRDT/OT) would be the bigger,
-  much harder version.
-- **Concurrency on edits.** Edits are last-write-wins. With multiple editors on a
-  team note I'd add a version / `updated_at` check so a save can't silently
+  easy version) so edits show up without a refresh. Real simultaneous co-editing
+  (CRDT/OT) would be the bigger, much harder version.
+- **Concurrency on edits.** Edits are last-write-wins. With multiple editors on
+  a team note I'd add a version / `updated_at` check so a save can't silently
   clobber someone else's change.
-- **More note features.** Search and tags plus team management: removing members, leaving or deleting a team.
-- **Auth hardening.** Auth setup is real basic right now, with more time I'd do a proper access/refresh token scheme with validation.
-- **Production storage.** I used SQLite for ease of dev environment setup; for a real multi-instance
-  deployment I'd switch to Postgres and add a proper migration tool instead of
-  schema-on-boot.
-- **Frontend tests.** I deliberately skipped web tests to focus on the API since it wasn't even requested in the first place; I'd
-  add a few component/integration tests.
+- **More note features.** Search and tags plus team management: removing
+  members, leaving or deleting a team.
+- **Auth hardening.** Auth setup is real basic right now, with more time I'd do
+  a proper access/refresh token scheme with validation.
+- **Production storage.** I used SQLite for ease of dev environment setup; for a
+  real multi-instance deployment I'd switch to Postgres and add a proper
+  migration tool instead of schema-on-boot.
+- **Frontend tests.** I deliberately skipped web tests to focus on the API since
+  it wasn't even requested in the first place; I'd add a few
+  component/integration tests.

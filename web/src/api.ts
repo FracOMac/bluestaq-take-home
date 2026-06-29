@@ -28,7 +28,10 @@ interface RequestOptions {
   body?: unknown
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const token = getToken()
   const res = await fetch(`${BASE}${path}`, {
     method: options.method ?? 'GET',

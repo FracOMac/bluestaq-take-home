@@ -7,8 +7,8 @@ import { createDb } from "../db.js";
 const buildApp = (): Express => createApp(createDb(":memory:"));
 
 const RYAN_EMAIL = "ryan@example.com";
-const GRACE_EMAIL = "grace@example.com"
-const CAROL_EMAIL = "carol@example.com"
+const GRACE_EMAIL = "grace@example.com";
+const CAROL_EMAIL = "carol@example.com";
 
 async function registerTestUser(app: Express, email: string): Promise<string> {
   const res = await request(app)
@@ -193,7 +193,9 @@ describe("notes", () => {
     const graceList = await request(app)
       .get("/notes")
       .set("Authorization", `Bearer ${graceToken}`);
-    expect(graceList.body.map((n: { id: string }) => n.id)).toContain(note.body.id);
+    expect(graceList.body.map((n: { id: string }) => n.id)).toContain(
+      note.body.id,
+    );
     const graceGet = await request(app)
       .get(`/notes/${note.body.id}`)
       .set("Authorization", `Bearer ${graceToken}`);
@@ -255,7 +257,12 @@ describe("notes", () => {
     const note = await request(app)
       .post("/notes")
       .set("Authorization", `Bearer ${ryanToken}`)
-      .send({ title: "Shared", content: "v1", visibility: "team", teamId: team.body.id });
+      .send({
+        title: "Shared",
+        content: "v1",
+        visibility: "team",
+        teamId: team.body.id,
+      });
 
     // grace is a member (not owner): can edit the content
     const edit = await request(app)

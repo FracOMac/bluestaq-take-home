@@ -1,0 +1,9 @@
+{
+  "proseWrap": "always",
+  "overrides": [
+    {
+      "files": "web/**/*.{ts,tsx}",
+      "options": { "semi": false, "singleQuote": true }
+    }
+  ]
+}

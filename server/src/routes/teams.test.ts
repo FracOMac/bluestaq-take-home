@@ -114,9 +114,15 @@ describe("teams", () => {
       .set("Authorization", `Bearer ${graceToken}`);
     expect(members.status).toBe(200);
     const roleByEmail = Object.fromEntries(
-      members.body.map((m: { email: string; role: string }) => [m.email, m.role]),
+      members.body.map((m: { email: string; role: string }) => [
+        m.email,
+        m.role,
+      ]),
     );
-    expect(roleByEmail).toEqual({ [RYAN_EMAIL]: "owner", [GRACE_EMAIL]: "member" });
+    expect(roleByEmail).toEqual({
+      [RYAN_EMAIL]: "owner",
+      [GRACE_EMAIL]: "member",
+    });
 
     const denied = await request(app)
       .get(`/teams/${team.body.id}/members`)

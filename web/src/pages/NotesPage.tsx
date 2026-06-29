@@ -20,7 +20,9 @@ export function NotesPage() {
         setTeams(loadedTeams)
       })
       .catch((err) =>
-        setError(err instanceof ApiError ? err.message : 'Failed to load notes'),
+        setError(
+          err instanceof ApiError ? err.message : 'Failed to load notes',
+        ),
       )
       .finally(() => setLoading(false))
   }, [isAuthenticated])
