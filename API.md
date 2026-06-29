@@ -30,7 +30,7 @@ GET    /notes/:id
 PATCH  /notes/:id  {title?, content?, visibility?, teamId?}
 DELETE /notes/:id
 
-visibility is either "private" or "team". a team note has to point at a team the owner belongs too. team members can read + edit team notes, but only the owner can delete one or flip its visibility.
+visibility is either "private" or "team". a team note has to point at a team the owner belongs to. team members can read + edit team notes, but only the owner can delete one or flip its visibility.
 
 ## misc
 
