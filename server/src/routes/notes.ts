@@ -1,11 +1,6 @@
 import type { RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
-import type {
-  CreateNoteRequest,
-  Note,
-  UpdateNoteRequest,
-  Visibility,
-} from "@team-notes/shared";
+import type { CreateNoteRequest, Note, Visibility } from "@team-notes/shared";
 import { insert, selectWhere, update, remove, type Db } from "../db.js";
 
 interface NoteRow {
@@ -121,50 +116,70 @@ export function getNote(db: Db): RequestHandler {
 
 export function updateNote(db: Db): RequestHandler {
   return (req, res) => {
-    const { title, content } = req.body ?? {};
+    // Editing (including changing visibility) is owner-only.
+    const note = selectWhere<NoteRow>(db, "notes", {
+      id: req.params.id,
+      owner_id: req.userId,
+    })[0];
+    if (!note) {
+      res.status(404).json({ error: "note not found" });
+      return;
+    }
 
-    const updates: UpdateNoteRequest = {};
+    const { title, content, visibility, teamId } = req.body ?? {};
+    const updated: NoteRow = { ...note, updated_at: new Date().toISOString() };
+    let changed = false;
+
     if (title !== undefined) {
       if (typeof title !== "string" || title.trim() === "") {
         res.status(400).json({ error: "title must be a non-empty string" });
         return;
       }
-      updates.title = title.trim();
+      updated.title = title.trim();
+      changed = true;
     }
     if (content !== undefined) {
       if (typeof content !== "string") {
         res.status(400).json({ error: "content must be a string" });
         return;
       }
-      updates.content = content;
+      updated.content = content;
+      changed = true;
     }
-    if (updates.title === undefined && updates.content === undefined) {
+    if (visibility !== undefined) {
+      if (visibility === "team") {
+        if (typeof teamId !== "string" || teamId === "") {
+          res.status(400).json({ error: "teamId is required for team notes" });
+          return;
+        }
+        if (!isTeamMember(db, teamId, req.userId!)) {
+          res.status(403).json({ error: "you are not a member of that team" });
+          return;
+        }
+        updated.visibility = "team";
+        updated.team_id = teamId;
+      } else if (visibility === "private") {
+        updated.visibility = "private";
+        updated.team_id = null;
+      } else {
+        res.status(400).json({ error: "invalid visibility" });
+        return;
+      }
+      changed = true;
+    }
+    if (!changed) {
       res.status(400).json({ error: "no updatable fields provided" });
       return;
     }
 
-    const rows = selectWhere<NoteRow>(db, "notes", {
-      id: req.params.id,
-      owner_id: req.userId,
-    });
-    const note = rows[0];
-    if (!note) {
-      res.status(404).json({ error: "note not found" });
-      return;
-    }
-
-    const updated: NoteRow = {
-      ...note,
-      title: updates.title ?? note.title,
-      content: updates.content ?? note.content,
-      updated_at: new Date().toISOString(),
-    };
     update(
       db,
       "notes",
       {
         title: updated.title,
         content: updated.content,
+        visibility: updated.visibility,
+        team_id: updated.team_id,
         updated_at: updated.updated_at,
       },
       { id: updated.id },

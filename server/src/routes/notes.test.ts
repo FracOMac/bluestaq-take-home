@@ -210,6 +210,36 @@ describe("notes", () => {
     expect(carolGet.status).toBe(404);
   });
 
+  it("lets the owner change a note's visibility to a team and back", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const team = await request(app)
+      .post("/teams")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ name: "Platform" });
+
+    const note = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "Note" });
+    expect(note.body.visibility).toBe("private");
+
+    const toTeam = await request(app)
+      .patch(`/notes/${note.body.id}`)
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ visibility: "team", teamId: team.body.id });
+    expect(toTeam.status).toBe(200);
+    expect(toTeam.body.visibility).toBe("team");
+    expect(toTeam.body.teamId).toBe(team.body.id);
+
+    const toPrivate = await request(app)
+      .patch(`/notes/${note.body.id}`)
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ visibility: "private" });
+    expect(toPrivate.body.visibility).toBe("private");
+    expect(toPrivate.body.teamId).toBeNull();
+  });
+
   it("requires authentication", async () => {
     const res = await request(buildApp()).get("/notes");
     expect(res.status).toBe(401);
