@@ -8,6 +8,10 @@ import type { Db } from "../db.js";
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const JWT_EXPIRES_IN = "7d";
 
+function signToken(userId: string): string {
+  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+}
+
 export function register(db: Db): RequestHandler {
   return async (req, res) => {
     const { email, password } = req.body ?? {};
@@ -32,7 +36,8 @@ export function register(db: Db): RequestHandler {
       "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
     ).run(user.id, user.email, passwordHash, user.createdAt);
 
-    res.status(201).json(user);
+    const body: AuthResponse = { token: signToken(user.id), user };
+    res.status(201).json(body);
   };
 }
 
@@ -55,11 +60,8 @@ export function login(db: Db): RequestHandler {
       return;
     }
 
-    const token = jwt.sign({ sub: row.id }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-    });
     const body: AuthResponse = {
-      token,
+      token: signToken(row.id),
       user: { id: row.id, email: row.email, createdAt: row.created_at },
     };
     res.json(body);

@@ -16,14 +16,15 @@ describe("health", () => {
 });
 
 describe("POST /auth/register", () => {
-  it("creates a user and returns it", async () => {
+  it("creates a user and returns a token and the user", async () => {
     const res = await request(buildApp())
       .post("/auth/register")
       .send({ email: "ada@example.com", password: "password123" });
 
     expect(res.status).toBe(201);
-    expect(res.body.id).toBeTypeOf("string");
-    expect(res.body.email).toBe("ada@example.com");
+    expect(res.body.token).toBeTypeOf("string");
+    expect(res.body.user.id).toBeTypeOf("string");
+    expect(res.body.user.email).toBe("ada@example.com");
     // never leak the password
     expect(JSON.stringify(res.body)).not.toContain("password123");
   });
