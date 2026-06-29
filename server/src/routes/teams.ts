@@ -1,7 +1,23 @@
 import type { RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
-import type { CreateTeamRequest, Team } from "@team-notes/shared";
+import type { CreateTeamRequest, Team, TeamRole } from "@team-notes/shared";
 import { insert, type Db } from "../db.js";
+
+interface TeamRow {
+  id: string;
+  name: string;
+  created_at: string;
+  role: TeamRole;
+}
+
+function toTeam(row: TeamRow): Team {
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role,
+    createdAt: row.created_at,
+  };
+}
 
 export function createTeam(db: Db): RequestHandler {
   return (req, res) => {
@@ -34,5 +50,20 @@ export function createTeam(db: Db): RequestHandler {
     })();
 
     res.status(201).json(team);
+  };
+}
+
+export function listTeams(db: Db): RequestHandler {
+  return (req, res) => {
+    const rows = db
+      .prepare(
+        `SELECT t.id, t.name, t.created_at, m.role
+         FROM teams t
+         JOIN team_members m ON m.team_id = t.id
+         WHERE m.user_id = ?
+         ORDER BY t.created_at DESC`,
+      )
+      .all(req.userId) as TeamRow[];
+    res.json(rows.map(toTeam));
   };
 }
