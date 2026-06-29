@@ -1,9 +1,23 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { Nav } from './components/Nav'
+import { LoginPage } from './pages/LoginPage'
+import { NotesPage } from './pages/NotesPage'
+import { TeamsPage } from './pages/TeamsPage'
+
 function App() {
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-bold text-gray-900">Team Notes</h1>
-      <p className="mt-2 text-gray-600">Frontend scaffold — wiring up to the API next.</p>
-    </main>
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <Nav />
+
+      <main className="mx-auto max-w-3xl p-4">
+        <Routes>
+          <Route path="/" element={<Navigate to="/notes" replace />} />
+          <Route path="/notes" element={<NotesPage />} />
+          <Route path="/teams" element={<TeamsPage />} />
+          <Route path="/login" element={<LoginPage />} />
+        </Routes>
+      </main>
+    </div>
   )
 }
 

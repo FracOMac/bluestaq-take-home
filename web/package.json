@@ -12,7 +12,8 @@
   "dependencies": {
     "@team-notes/shared": "*",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",
