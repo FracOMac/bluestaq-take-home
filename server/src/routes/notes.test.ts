@@ -240,6 +240,39 @@ describe("notes", () => {
     expect(toPrivate.body.teamId).toBeNull();
   });
 
+  it("lets a team member edit a team note, but not change its visibility", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
+    const team = await request(app)
+      .post("/teams")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ name: "Platform" });
+    await request(app)
+      .post(`/teams/${team.body.id}/members`)
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ email: GRACE_EMAIL });
+    const note = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "Shared", content: "v1", visibility: "team", teamId: team.body.id });
+
+    // grace is a member (not owner): can edit the content
+    const edit = await request(app)
+      .patch(`/notes/${note.body.id}`)
+      .set("Authorization", `Bearer ${graceToken}`)
+      .send({ content: "v2 by grace" });
+    expect(edit.status).toBe(200);
+    expect(edit.body.content).toBe("v2 by grace");
+
+    // but cannot flip its visibility
+    const flip = await request(app)
+      .patch(`/notes/${note.body.id}`)
+      .set("Authorization", `Bearer ${graceToken}`)
+      .send({ visibility: "private" });
+    expect(flip.status).toBe(403);
+  });
+
   it("requires authentication", async () => {
     const res = await request(buildApp()).get("/notes");
     expect(res.status).toBe(401);

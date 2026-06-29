@@ -116,15 +116,14 @@ export function getNote(db: Db): RequestHandler {
 
 export function updateNote(db: Db): RequestHandler {
   return (req, res) => {
-    // Editing (including changing visibility) is owner-only.
-    const note = selectWhere<NoteRow>(db, "notes", {
-      id: req.params.id,
-      owner_id: req.userId,
-    })[0];
+    // Owners and team members can edit a note's content; only the owner can
+    // change its visibility. findReadableNote() yields exactly that edit set.
+    const note = findReadableNote(db, String(req.params.id), req.userId!);
     if (!note) {
       res.status(404).json({ error: "note not found" });
       return;
     }
+    const isOwner = note.owner_id === req.userId;
 
     const { title, content, visibility, teamId } = req.body ?? {};
     const updated: NoteRow = { ...note, updated_at: new Date().toISOString() };
@@ -147,6 +146,12 @@ export function updateNote(db: Db): RequestHandler {
       changed = true;
     }
     if (visibility !== undefined) {
+      if (!isOwner) {
+        res
+          .status(403)
+          .json({ error: "only the owner can change visibility" });
+        return;
+      }
       if (visibility === "team") {
         if (typeof teamId !== "string" || teamId === "") {
           res.status(400).json({ error: "teamId is required for team notes" });

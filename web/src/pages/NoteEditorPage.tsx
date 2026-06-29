@@ -5,7 +5,7 @@ import { api, ApiError } from '../api'
 import { useAuth } from '../AuthContext'
 
 export function NoteEditorPage() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, userId } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
@@ -15,6 +15,8 @@ export function NoteEditorPage() {
   const [visibility, setVisibility] = useState<Visibility>('private')
   const [teamId, setTeamId] = useState('')
   const [teams, setTeams] = useState<Team[]>([])
+  // new notes are owned by the caller; only the owner may change visibility
+  const [canEditVisibility, setCanEditVisibility] = useState(true)
   const [loading, setLoading] = useState(isEdit)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -33,6 +35,7 @@ export function NoteEditorPage() {
         setContent(note.content)
         setVisibility(note.visibility)
         setTeamId(note.teamId ?? '')
+        setCanEditVisibility(note.ownerId === userId)
       })
       .catch((err) =>
         setError(err instanceof ApiError ? err.message : 'Failed to load note'),
@@ -43,17 +46,20 @@ export function NoteEditorPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError('')
-    if (visibility === 'team' && !teamId) {
+    if (canEditVisibility && visibility === 'team' && !teamId) {
       setError('Pick a team for a team note')
       return
     }
     setSaving(true)
-    const body = {
-      title,
-      content,
-      visibility,
-      ...(visibility === 'team' ? { teamId } : {}),
-    }
+    // non-owners may only edit title/content; sending visibility would be rejected
+    const body = canEditVisibility
+      ? {
+          title,
+          content,
+          visibility,
+          ...(visibility === 'team' ? { teamId } : {}),
+        }
+      : { title, content }
     try {
       if (id) {
         await api.updateNote(id, body)
@@ -93,31 +99,33 @@ export function NoteEditorPage() {
           className="w-full rounded border border-gray-300 px-3 py-2"
         />
 
-        <div className="flex gap-2">
-          <select
-            value={visibility}
-            onChange={(e) => setVisibility(e.target.value as Visibility)}
-            className="rounded border border-gray-300 px-3 py-2"
-          >
-            <option value="private">Private</option>
-            <option value="team">Team</option>
-          </select>
-
-          {visibility === 'team' && (
+        {canEditVisibility && (
+          <div className="flex gap-2">
             <select
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              className="flex-1 rounded border border-gray-300 px-3 py-2"
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as Visibility)}
+              className="rounded border border-gray-300 px-3 py-2"
             >
-              <option value="">Select a team…</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
+              <option value="private">Private</option>
+              <option value="team">Team</option>
             </select>
-          )}
-        </div>
+
+            {visibility === 'team' && (
+              <select
+                value={teamId}
+                onChange={(e) => setTeamId(e.target.value)}
+                className="flex-1 rounded border border-gray-300 px-3 py-2"
+              >
+                <option value="">Select a team…</option>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 

@@ -63,6 +63,8 @@ export function NotesPage() {
         <ul className="mt-4 space-y-2">
           {notes.map((note) => {
             const isOwner = note.ownerId === userId
+            // team notes are editable by any member; only the owner deletes
+            const canEdit = isOwner || note.visibility === 'team'
             const name = teamName(note.teamId)
             const badge =
               note.visibility === 'team'
@@ -82,14 +84,16 @@ export function NotesPage() {
                       {badge}
                     </span>
                   </div>
-                  {isOwner && (
-                    <div className="flex gap-3 text-sm">
+                  <div className="flex gap-3 text-sm">
+                    {canEdit && (
                       <Link
                         to={`/notes/${note.id}/edit`}
                         className="text-gray-600 hover:text-gray-900"
                       >
                         Edit
                       </Link>
+                    )}
+                    {isOwner && (
                       <button
                         type="button"
                         onClick={() => handleDelete(note.id)}
@@ -97,8 +101,8 @@ export function NotesPage() {
                       >
                         Delete
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
                 {note.content && (
                   <p className="mt-1 whitespace-pre-wrap text-gray-700">
