@@ -1,16 +1,9 @@
 import type { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { randomUUID } from "node:crypto";
 import type { AuthResponse, User } from "@team-notes/shared";
 import type { Db } from "../db.js";
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
-const JWT_EXPIRES_IN = "7d";
-
-function signToken(userId: string): string {
-  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-}
+import { signToken } from "../token.js";
 
 export function register(db: Db): RequestHandler {
   return async (req, res) => {
