@@ -1,0 +1,19 @@
+# dependencies (hoisted to root by npm workspaces)
+node_modules/
+
+# build output
+dist/
+
+# local databases
+*.sqlite
+*.sqlite-journal
+
+# env / secrets
+.env
+.env.*
+
+# logs
+*.log
+
+# os / editor cruft
+.DS_Store
