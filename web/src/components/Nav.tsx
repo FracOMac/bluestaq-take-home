@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../AuthContext'
 
 function linkClass(isActive: boolean, extra = '') {
   const state = isActive
@@ -8,6 +9,9 @@ function linkClass(isActive: boolean, extra = '') {
 }
 
 export function Nav() {
+  const { isAuthenticated, signOut } = useAuth()
+  const navigate = useNavigate()
+
   return (
     <nav className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex max-w-3xl items-center gap-4 p-4">
@@ -17,12 +21,25 @@ export function Nav() {
         <NavLink to="/teams" className={({ isActive }) => linkClass(isActive)}>
           Teams
         </NavLink>
-        <NavLink
-          to="/login"
-          className={({ isActive }) => linkClass(isActive, 'ml-auto')}
-        >
-          Sign in
-        </NavLink>
+        {isAuthenticated ? (
+          <button
+            type="button"
+            onClick={() => {
+              signOut()
+              navigate('/login')
+            }}
+            className="ml-auto text-gray-600 hover:text-gray-900"
+          >
+            Sign out
+          </button>
+        ) : (
+          <NavLink
+            to="/login"
+            className={({ isActive }) => linkClass(isActive, 'ml-auto')}
+          >
+            Sign in
+          </NavLink>
+        )}
       </div>
     </nav>
   )
