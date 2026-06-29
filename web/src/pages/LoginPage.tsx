@@ -17,11 +17,11 @@ export function LoginPage() {
     setError('')
     setSubmitting(true)
     try {
-      const { token } =
+      const auth =
         mode === 'login'
           ? await api.login({ email, password })
           : await api.register({ email, password })
-      signIn(token)
+      signIn(auth.token)
       navigate('/notes')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')

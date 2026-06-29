@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import { getToken, saveToken, clearToken } from './auth'
+import { getToken, saveToken, clearToken, userIdFromToken } from './auth'
 
 interface AuthValue {
   token: string | null
+  userId: string | null
   isAuthenticated: boolean
   signIn: (token: string) => void
   signOut: () => void
@@ -12,6 +13,7 @@ const AuthContext = createContext<AuthValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(getToken())
+  const userId = token ? userIdFromToken(token) : null
 
   function signIn(newToken: string) {
     saveToken(newToken)
@@ -25,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ token, isAuthenticated: token !== null, signIn, signOut }}
+      value={{ token, userId, isAuthenticated: token !== null, signIn, signOut }}
     >
       {children}
     </AuthContext.Provider>

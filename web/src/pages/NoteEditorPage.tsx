@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import type { Team, Visibility } from '@team-notes/shared'
 import { api, ApiError } from '../api'
 import { useAuth } from '../AuthContext'
 
@@ -11,9 +12,17 @@ export function NoteEditorPage() {
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [visibility, setVisibility] = useState<Visibility>('private')
+  const [teamId, setTeamId] = useState('')
+  const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(isEdit)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    api.listTeams().then(setTeams).catch(() => {})
+  }, [isAuthenticated])
 
   useEffect(() => {
     if (!isAuthenticated || !id) return
@@ -22,6 +31,8 @@ export function NoteEditorPage() {
       .then((note) => {
         setTitle(note.title)
         setContent(note.content)
+        setVisibility(note.visibility)
+        setTeamId(note.teamId ?? '')
       })
       .catch((err) =>
         setError(err instanceof ApiError ? err.message : 'Failed to load note'),
@@ -32,12 +43,22 @@ export function NoteEditorPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError('')
+    if (visibility === 'team' && !teamId) {
+      setError('Pick a team for a team note')
+      return
+    }
     setSaving(true)
+    const body = {
+      title,
+      content,
+      visibility,
+      ...(visibility === 'team' ? { teamId } : {}),
+    }
     try {
       if (id) {
-        await api.updateNote(id, { title, content })
+        await api.updateNote(id, body)
       } else {
-        await api.createNote({ title, content })
+        await api.createNote(body)
       }
       navigate('/notes')
     } catch (err) {
@@ -71,7 +92,35 @@ export function NoteEditorPage() {
           rows={8}
           className="w-full rounded border border-gray-300 px-3 py-2"
         />
+
+        <div className="flex gap-2">
+          <select
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value as Visibility)}
+            className="rounded border border-gray-300 px-3 py-2"
+          >
+            <option value="private">Private</option>
+            <option value="team">Team</option>
+          </select>
+
+          {visibility === 'team' && (
+            <select
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
+              className="flex-1 rounded border border-gray-300 px-3 py-2"
+            >
+              <option value="">Select a team…</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
         {error && <p className="text-sm text-red-600">{error}</p>}
+
         <div className="flex gap-2">
           <button
             type="submit"
