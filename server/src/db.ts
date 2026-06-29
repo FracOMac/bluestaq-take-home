@@ -99,3 +99,23 @@ export function remove(db: Db, table: string, where: object): number {
     .run(where as Record<string, SqlValue>);
   return result.changes;
 }
+
+/**
+ * Select across a join. Like selectWhere(), but you supply the `from` clause
+ * (with joins) and the columns, and `where` keys may be table-qualified
+ * (e.g. "m.user_id"). Conditions are ANDed equality with positional params.
+ */
+export function selectJoin<T>(
+  db: Db,
+  opts: { from: string; columns: string; where: object; orderBy?: string },
+): T[] {
+  const keys = Object.keys(opts.where);
+  const whereClause = keys.length
+    ? ` WHERE ${keys.map((k) => `${k} = ?`).join(" AND ")}`
+    : "";
+  const order = opts.orderBy ? ` ORDER BY ${opts.orderBy}` : "";
+  const params = Object.values(opts.where) as SqlValue[];
+  return db
+    .prepare(`SELECT ${opts.columns} FROM ${opts.from}${whereClause}${order}`)
+    .all(...params) as T[];
+}

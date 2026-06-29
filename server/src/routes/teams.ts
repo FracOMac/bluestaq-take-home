@@ -1,7 +1,11 @@
 import type { RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
 import type { CreateTeamRequest, Team, TeamRole } from "@team-notes/shared";
-import { insert, type Db } from "../db.js";
+import { insert, selectJoin, type Db } from "../db.js";
+
+// a team plus the caller's role in it
+const TEAMS_FROM = "teams t JOIN team_members m ON m.team_id = t.id";
+const TEAM_COLUMNS = "t.id, t.name, t.created_at, m.role";
 
 interface TeamRow {
   id: string;
@@ -53,17 +57,30 @@ export function createTeam(db: Db): RequestHandler {
   };
 }
 
+export function getTeam(db: Db): RequestHandler {
+  return (req, res) => {
+    // Match on team id AND caller membership, so non-members read as 404.
+    const rows = selectJoin<TeamRow>(db, {
+      from: TEAMS_FROM,
+      columns: TEAM_COLUMNS,
+      where: { "t.id": req.params.id, "m.user_id": req.userId },
+    });
+    if (!rows[0]) {
+      res.status(404).json({ error: "team not found" });
+      return;
+    }
+    res.json(toTeam(rows[0]));
+  };
+}
+
 export function listTeams(db: Db): RequestHandler {
   return (req, res) => {
-    const rows = db
-      .prepare(
-        `SELECT t.id, t.name, t.created_at, m.role
-         FROM teams t
-         JOIN team_members m ON m.team_id = t.id
-         WHERE m.user_id = ?
-         ORDER BY t.created_at DESC`,
-      )
-      .all(req.userId) as TeamRow[];
+    const rows = selectJoin<TeamRow>(db, {
+      from: TEAMS_FROM,
+      columns: TEAM_COLUMNS,
+      where: { "m.user_id": req.userId },
+      orderBy: "t.created_at DESC",
+    });
     res.json(rows.map(toTeam));
   };
 }

@@ -40,6 +40,28 @@ describe("teams", () => {
     expect(theirs.body).toEqual([]);
   });
 
+  it("returns a team to its members, 404 to everyone else", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
+
+    const created = await request(app)
+      .post("/teams")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ name: "Platform" });
+
+    const asMember = await request(app)
+      .get(`/teams/${created.body.id}`)
+      .set("Authorization", `Bearer ${ryanToken}`);
+    expect(asMember.status).toBe(200);
+    expect(asMember.body).toEqual(created.body);
+
+    const asOther = await request(app)
+      .get(`/teams/${created.body.id}`)
+      .set("Authorization", `Bearer ${graceToken}`);
+    expect(asOther.status).toBe(404);
+  });
+
   it("requires authentication", async () => {
     const res = await request(buildApp()).post("/teams").send({ name: "Nope" });
     expect(res.status).toBe(401);

@@ -10,7 +10,7 @@ import {
   updateNote,
   deleteNote,
 } from "./routes/notes.js";
-import { createTeam, listTeams } from "./routes/teams.js";
+import { createTeam, listTeams, getTeam } from "./routes/teams.js";
 
 export function createApp(db: Db) {
   const app = express();
@@ -32,6 +32,7 @@ export function createApp(db: Db) {
 
   app.post("/teams", requireAuth, createTeam(db));
   app.get("/teams", requireAuth, listTeams(db));
+  app.get("/teams/:id", requireAuth, getTeam(db));
 
   return app;
 }
