@@ -94,3 +94,4 @@ where the gaps were vs my initial api design.
 - **Frontend tests.** I deliberately skipped web tests to focus on the API since
   it wasn't even requested in the first place; I'd add a few
   component/integration tests.
+- **An actual username/settings** Right now email used where we'd actually want a name/username, a "real" system would have more granularity there.
