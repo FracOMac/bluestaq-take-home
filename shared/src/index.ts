@@ -78,6 +78,9 @@ export interface Note {
   visibility: Visibility;
   createdAt: string;
   updatedAt: string;
+  // email of the user who last edited the note (the creator, initially),
+  // resolved from the stored editor id
+  lastEditedByEmail: string;
 }
 
 export type HealthStatus = "ok" | "down";

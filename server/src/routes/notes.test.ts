@@ -273,6 +273,33 @@ describe("notes", () => {
     expect(flip.status).toBe(403);
   });
 
+  it("records who last edited a note", async () => {
+    const app = buildApp();
+    const ryanToken = await registerTestUser(app, RYAN_EMAIL);
+    const graceToken = await registerTestUser(app, GRACE_EMAIL);
+    const team = await request(app)
+      .post("/teams")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ name: "Platform" });
+    await request(app)
+      .post(`/teams/${team.body.id}/members`)
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ email: GRACE_EMAIL });
+
+    const note = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "Shared", visibility: "team", teamId: team.body.id });
+    // creator is the initial last-editor
+    expect(note.body.lastEditedByEmail).toBe(RYAN_EMAIL);
+
+    const edited = await request(app)
+      .patch(`/notes/${note.body.id}`)
+      .set("Authorization", `Bearer ${graceToken}`)
+      .send({ content: "edited by grace" });
+    expect(edited.body.lastEditedByEmail).toBe(GRACE_EMAIL);
+  });
+
   it("requires authentication", async () => {
     const res = await request(buildApp()).get("/notes");
     expect(res.status).toBe(401);

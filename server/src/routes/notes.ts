@@ -12,6 +12,8 @@ interface NoteRow {
   visibility: Visibility;
   created_at: string;
   updated_at: string;
+  last_edited_by: string;
+  last_edited_by_email: string; // joined from users
 }
 
 function toNote(row: NoteRow): Note {
@@ -24,6 +26,7 @@ function toNote(row: NoteRow): Note {
     visibility: row.visibility,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    lastEditedByEmail: row.last_edited_by_email,
   };
 }
 
@@ -33,18 +36,24 @@ function isTeamMember(db: Db, teamId: string, userId: string): boolean {
   );
 }
 
+// Select a note alongside the email of whoever last edited it.
+const NOTE_SELECT = `
+  SELECT n.*, e.email AS last_edited_by_email
+  FROM notes n
+  JOIN users e ON e.id = n.last_edited_by`;
+
 // A note is visible to a user if they own it, or it's a team note for a team
 // they belong to. Shared by the list and get-by-id queries.
 const VISIBLE_TO = `(
-  owner_id = @userId
-  OR (visibility = 'team' AND team_id IN (
+  n.owner_id = @userId
+  OR (n.visibility = 'team' AND n.team_id IN (
     SELECT team_id FROM team_members WHERE user_id = @userId
   ))
 )`;
 
 function listVisibleNotes(db: Db, userId: string): NoteRow[] {
   return db
-    .prepare(`SELECT * FROM notes WHERE ${VISIBLE_TO} ORDER BY created_at DESC`)
+    .prepare(`${NOTE_SELECT} WHERE ${VISIBLE_TO} ORDER BY n.created_at DESC`)
     .all({ userId }) as NoteRow[];
 }
 
@@ -54,7 +63,7 @@ function findReadableNote(
   userId: string,
 ): NoteRow | undefined {
   return db
-    .prepare(`SELECT * FROM notes WHERE id = @id AND ${VISIBLE_TO}`)
+    .prepare(`${NOTE_SELECT} WHERE n.id = @id AND ${VISIBLE_TO}`)
     .get({ id, userId }) as NoteRow | undefined;
 }
 
@@ -85,9 +94,10 @@ export function createNote(db: Db): RequestHandler {
       ...(isTeam ? { teamId } : {}),
     };
 
+    const id = randomUUID();
     const now = new Date().toISOString();
-    const row: NoteRow = {
-      id: randomUUID(),
+    insert(db, "notes", {
+      id,
       title: request.title,
       content: request.content ?? "",
       owner_id: req.userId!,
@@ -95,10 +105,10 @@ export function createNote(db: Db): RequestHandler {
       visibility: request.visibility ?? "private",
       created_at: now,
       updated_at: now,
-    };
-    insert(db, "notes", row);
+      last_edited_by: req.userId!,
+    });
 
-    res.status(201).json(toNote(row));
+    res.status(201).json(toNote(findReadableNote(db, id, req.userId!)!));
   };
 }
 
@@ -186,11 +196,12 @@ export function updateNote(db: Db): RequestHandler {
         visibility: updated.visibility,
         team_id: updated.team_id,
         updated_at: updated.updated_at,
+        last_edited_by: req.userId!,
       },
       { id: updated.id },
     );
 
-    res.json(toNote(updated));
+    res.json(toNote(findReadableNote(db, updated.id, req.userId!)!));
   };
 }
 

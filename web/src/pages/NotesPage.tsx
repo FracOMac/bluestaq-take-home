@@ -109,6 +109,10 @@ export function NotesPage() {
                     {note.content}
                   </p>
                 )}
+                <p className="mt-2 text-xs text-gray-500">
+                  Last edited by {note.lastEditedByEmail} ·{' '}
+                  {new Date(note.updatedAt).toLocaleString()}
+                </p>
               </li>
             )
           })}

@@ -15,14 +15,15 @@ export function createDb(path: string): Db {
     );
 
     CREATE TABLE IF NOT EXISTS notes (
-      id         TEXT PRIMARY KEY,
-      title      TEXT NOT NULL,
-      content    TEXT NOT NULL DEFAULT '',
-      owner_id   TEXT NOT NULL REFERENCES users(id),
-      team_id    TEXT,
-      visibility TEXT NOT NULL DEFAULT 'private',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      id             TEXT PRIMARY KEY,
+      title          TEXT NOT NULL,
+      content        TEXT NOT NULL DEFAULT '',
+      owner_id       TEXT NOT NULL REFERENCES users(id),
+      team_id        TEXT,
+      visibility     TEXT NOT NULL DEFAULT 'private',
+      created_at     TEXT NOT NULL,
+      updated_at     TEXT NOT NULL,
+      last_edited_by TEXT NOT NULL REFERENCES users(id)
     );
 
     CREATE INDEX IF NOT EXISTS idx_notes_owner ON notes(owner_id);
