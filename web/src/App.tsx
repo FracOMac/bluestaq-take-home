@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage'
 import { NotesPage } from './pages/NotesPage'
 import { NoteEditorPage } from './pages/NoteEditorPage'
 import { TeamsPage } from './pages/TeamsPage'
+import { TeamPage } from './pages/TeamPage'
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="/notes/new" element={<NoteEditorPage />} />
           <Route path="/notes/:id/edit" element={<NoteEditorPage />} />
           <Route path="/teams" element={<TeamsPage />} />
+          <Route path="/teams/:id" element={<TeamPage />} />
           <Route path="/login" element={<LoginPage />} />
         </Routes>
       </main>
