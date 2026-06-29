@@ -6,7 +6,7 @@ dist/
 
 # local databases
 *.sqlite
-*.sqlite-journal
+*.sqlite-*
 
 # env / secrets
 .env
