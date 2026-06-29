@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
-import type { Note, Visibility } from "@team-notes/shared";
+import type { CreateNoteRequest, Note, Visibility } from "@team-notes/shared";
 import { insert, selectWhere, type Db } from "../db.js";
 
 interface NoteRow {
@@ -34,12 +34,16 @@ export function createNote(db: Db): RequestHandler {
       res.status(400).json({ error: "title is required" });
       return;
     }
+    const request: CreateNoteRequest = {
+      title: title.trim(),
+      content: typeof content === "string" ? content : "",
+    };
 
     const now = new Date().toISOString();
     const row: NoteRow = {
       id: randomUUID(),
-      title: title.trim(),
-      content: typeof content === "string" ? content : "",
+      title: request.title,
+      content: request.content ?? "",
       owner_id: req.userId!,
       team_id: null,
       visibility: "private",
@@ -49,6 +53,22 @@ export function createNote(db: Db): RequestHandler {
     insert(db, "notes", row);
 
     res.status(201).json(toNote(row));
+  };
+}
+
+export function getNote(db: Db): RequestHandler {
+  return (req, res) => {
+    // Match on id AND owner, so a note the caller doesn't own reads as 404
+    // (no leaking that someone else's note exists).
+    const rows = selectWhere<NoteRow>(db, "notes", {
+      id: req.params.id,
+      owner_id: req.userId,
+    });
+    if (!rows[0]) {
+      res.status(404).json({ error: "note not found" });
+      return;
+    }
+    res.json(toNote(rows[0]));
   };
 }
 

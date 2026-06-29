@@ -38,6 +38,29 @@ describe("notes", () => {
     expect(graceNotes.body).toHaveLength(0);
   });
 
+  it("fetches a note by id for its owner, but 404s for anyone else", async () => {
+    const app = buildApp();
+    const ryanToken = await tokenFor(app);
+    const graceToken = await tokenFor(app, "grace@example.com");
+
+    const created = await request(app)
+      .post("/notes")
+      .set("Authorization", `Bearer ${ryanToken}`)
+      .send({ title: "secret" });
+    const id = created.body.id;
+
+    const asOwner = await request(app)
+      .get(`/notes/${id}`)
+      .set("Authorization", `Bearer ${ryanToken}`);
+    expect(asOwner.status).toBe(200);
+    expect(asOwner.body.id).toBe(id);
+
+    const asOther = await request(app)
+      .get(`/notes/${id}`)
+      .set("Authorization", `Bearer ${graceToken}`);
+    expect(asOther.status).toBe(404);
+  });
+
   it("requires authentication", async () => {
     const res = await request(buildApp()).get("/notes");
     expect(res.status).toBe(401);

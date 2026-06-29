@@ -1,7 +1,12 @@
 import type { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
-import type { AuthResponse, User } from "@team-notes/shared";
+import type {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  User,
+} from "@team-notes/shared";
 import { insert, type Db } from "../db.js";
 import { signToken } from "../token.js";
 
@@ -12,8 +17,9 @@ export function register(db: Db): RequestHandler {
       res.status(400).json({ error: "email and password (min 8 chars) are required" });
       return;
     }
+    const request: RegisterRequest = { email, password };
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = request.email.toLowerCase().trim();
     if (db.prepare("SELECT 1 FROM users WHERE email = ?").get(normalizedEmail)) {
       res.status(409).json({ error: "email already registered" });
       return;
@@ -24,7 +30,7 @@ export function register(db: Db): RequestHandler {
       email: normalizedEmail,
       createdAt: new Date().toISOString(),
     };
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(request.password, 10);
     insert(db, "users", {
       id: user.id,
       email: user.email,
@@ -44,14 +50,15 @@ export function login(db: Db): RequestHandler {
       res.status(400).json({ error: "email and password are required" });
       return;
     }
+    const credentials: LoginRequest = { email, password };
 
     const row = db
       .prepare("SELECT id, email, password_hash, created_at FROM users WHERE email = ?")
-      .get(email.toLowerCase().trim()) as
+      .get(credentials.email.toLowerCase().trim()) as
       | { id: string; email: string; password_hash: string; created_at: string }
       | undefined;
 
-    if (!row || !(await bcrypt.compare(password, row.password_hash))) {
+    if (!row || !(await bcrypt.compare(credentials.password, row.password_hash))) {
       res.status(401).json({ error: "invalid email or password" });
       return;
     }
