@@ -1,20 +1,16 @@
 import type { RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
-import type { CreateNoteRequest, Note, Visibility } from "@team-notes/shared";
-import { insert, selectWhere, update, remove, type Db } from "../db.js";
-
-interface NoteRow {
-  id: string;
-  title: string;
-  content: string;
-  owner_id: string;
-  team_id: string | null;
-  visibility: Visibility;
-  created_at: string;
-  updated_at: string;
-  last_edited_by: string;
-  last_edited_by_email: string; // joined from users
-}
+import type { CreateNoteRequest, Note } from "@team-notes/shared";
+import type { Db } from "../db/index.js";
+import { isMember } from "../db/teams.js";
+import {
+  deleteOwnedNote,
+  findReadableNote,
+  insertNote,
+  listVisibleNotes,
+  updateNoteFields,
+  type NoteRow,
+} from "../db/notes.js";
 
 function toNote(row: NoteRow): Note {
   return {
@@ -28,43 +24,6 @@ function toNote(row: NoteRow): Note {
     updatedAt: row.updated_at,
     lastEditedByEmail: row.last_edited_by_email,
   };
-}
-
-function isTeamMember(db: Db, teamId: string, userId: string): boolean {
-  return Boolean(
-    selectWhere(db, "team_members", { team_id: teamId, user_id: userId })[0],
-  );
-}
-
-// Select a note alongside the email of whoever last edited it.
-const NOTE_SELECT = `
-  SELECT n.*, e.email AS last_edited_by_email
-  FROM notes n
-  JOIN users e ON e.id = n.last_edited_by`;
-
-// A note is visible to a user if they own it, or it's a team note for a team
-// they belong to. Shared by the list and get-by-id queries.
-const VISIBLE_TO = `(
-  n.owner_id = @userId
-  OR (n.visibility = 'team' AND n.team_id IN (
-    SELECT team_id FROM team_members WHERE user_id = @userId
-  ))
-)`;
-
-function listVisibleNotes(db: Db, userId: string): NoteRow[] {
-  return db
-    .prepare(`${NOTE_SELECT} WHERE ${VISIBLE_TO} ORDER BY n.created_at DESC`)
-    .all({ userId }) as NoteRow[];
-}
-
-function findReadableNote(
-  db: Db,
-  id: string,
-  userId: string,
-): NoteRow | undefined {
-  return db
-    .prepare(`${NOTE_SELECT} WHERE n.id = @id AND ${VISIBLE_TO}`)
-    .get({ id, userId }) as NoteRow | undefined;
 }
 
 export function createNote(db: Db): RequestHandler {
@@ -81,7 +40,7 @@ export function createNote(db: Db): RequestHandler {
         res.status(400).json({ error: "teamId is required for team notes" });
         return;
       }
-      if (!isTeamMember(db, teamId, req.userId!)) {
+      if (!isMember(db, teamId, req.userId!)) {
         res.status(403).json({ error: "you are not a member of that team" });
         return;
       }
@@ -96,7 +55,7 @@ export function createNote(db: Db): RequestHandler {
 
     const id = randomUUID();
     const now = new Date().toISOString();
-    insert(db, "notes", {
+    insertNote(db, {
       id,
       title: request.title,
       content: request.content ?? "",
@@ -114,7 +73,7 @@ export function createNote(db: Db): RequestHandler {
 
 export function getNote(db: Db): RequestHandler {
   return (req, res) => {
-    // Readable if owned or shared via a team; otherwise 404 (no existence leak).
+    // readable if owned or shared via a team; otherwise 404 (no existence leak)
     const note = findReadableNote(db, String(req.params.id), req.userId!);
     if (!note) {
       res.status(404).json({ error: "note not found" });
@@ -126,8 +85,8 @@ export function getNote(db: Db): RequestHandler {
 
 export function updateNote(db: Db): RequestHandler {
   return (req, res) => {
-    // Owners and team members can edit a note's content; only the owner can
-    // change its visibility. findReadableNote() yields exactly that edit set.
+    // owners and team members can edit content; only the owner changes
+    // visibility. findReadableNote() yields exactly that edit set.
     const note = findReadableNote(db, String(req.params.id), req.userId!);
     if (!note) {
       res.status(404).json({ error: "note not found" });
@@ -136,7 +95,7 @@ export function updateNote(db: Db): RequestHandler {
     const isOwner = note.owner_id === req.userId;
 
     const { title, content, visibility, teamId } = req.body ?? {};
-    const updated: NoteRow = { ...note, updated_at: new Date().toISOString() };
+    const updated = { ...note, updated_at: new Date().toISOString() };
     let changed = false;
 
     if (title !== undefined) {
@@ -165,7 +124,7 @@ export function updateNote(db: Db): RequestHandler {
           res.status(400).json({ error: "teamId is required for team notes" });
           return;
         }
-        if (!isTeamMember(db, teamId, req.userId!)) {
+        if (!isMember(db, teamId, req.userId!)) {
           res.status(403).json({ error: "you are not a member of that team" });
           return;
         }
@@ -185,30 +144,22 @@ export function updateNote(db: Db): RequestHandler {
       return;
     }
 
-    update(
-      db,
-      "notes",
-      {
-        title: updated.title,
-        content: updated.content,
-        visibility: updated.visibility,
-        team_id: updated.team_id,
-        updated_at: updated.updated_at,
-        last_edited_by: req.userId!,
-      },
-      { id: updated.id },
-    );
+    updateNoteFields(db, note.id, {
+      title: updated.title,
+      content: updated.content,
+      visibility: updated.visibility,
+      team_id: updated.team_id,
+      updated_at: updated.updated_at,
+      last_edited_by: req.userId!,
+    });
 
-    res.json(toNote(findReadableNote(db, updated.id, req.userId!)!));
+    res.json(toNote(findReadableNote(db, note.id, req.userId!)!));
   };
 }
 
 export function deleteNote(db: Db): RequestHandler {
   return (req, res) => {
-    const deleted = remove(db, "notes", {
-      id: req.params.id,
-      owner_id: req.userId,
-    });
+    const deleted = deleteOwnedNote(db, String(req.params.id), req.userId!);
     if (deleted === 0) {
       res.status(404).json({ error: "note not found" });
       return;

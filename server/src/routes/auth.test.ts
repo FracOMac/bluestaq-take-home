@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import request from "supertest";
 import type { Express } from "express";
 import { createApp } from "../app.js";
-import { createDb } from "../db.js";
+import { createDb } from "../db/index.js";
 
 const buildApp = (): Express => createApp(createDb(":memory:"));
 const creds = { email: "ryan@example.com", password: "password123" };

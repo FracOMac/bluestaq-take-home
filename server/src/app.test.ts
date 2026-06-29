@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { createApp } from "./app.js";
-import { createDb } from "./db.js";
+import { createDb } from "./db/index.js";
 
 function buildApp() {
   return createApp(createDb(":memory:"));

@@ -5,20 +5,19 @@ import type {
   CreateTeamRequest,
   Team,
   TeamMember,
-  TeamRole,
 } from "@team-notes/shared";
-import { insert, selectWhere, selectJoin, type Db } from "../db.js";
-
-// a team plus the caller's role in it
-const TEAMS_FROM = "teams t JOIN team_members m ON m.team_id = t.id";
-const TEAM_COLUMNS = "t.id, t.name, t.created_at, m.role";
-
-interface TeamRow {
-  id: string;
-  name: string;
-  created_at: string;
-  role: TeamRole;
-}
+import type { Db } from "../db/index.js";
+import { findUserByEmail } from "../db/users.js";
+import {
+  addMembership,
+  findMembership,
+  findTeamForUser,
+  insertTeam,
+  isMember,
+  listTeamMembers,
+  listTeamsForUser,
+  type TeamRow,
+} from "../db/teams.js";
 
 function toTeam(row: TeamRow): Team {
   return {
@@ -47,14 +46,10 @@ export function createTeam(db: Db): RequestHandler {
 
     // team + owner membership must land together
     db.transaction(() => {
-      insert(db, "teams", {
-        id: team.id,
-        name: team.name,
-        created_at: team.createdAt,
-      });
-      insert(db, "team_members", {
-        team_id: team.id,
-        user_id: req.userId,
+      insertTeam(db, team);
+      addMembership(db, {
+        teamId: team.id,
+        userId: req.userId!,
         role: "owner",
       });
     })();
@@ -65,17 +60,20 @@ export function createTeam(db: Db): RequestHandler {
 
 export function getTeam(db: Db): RequestHandler {
   return (req, res) => {
-    // Match on team id AND caller membership, so non-members read as 404.
-    const rows = selectJoin<TeamRow>(db, {
-      from: TEAMS_FROM,
-      columns: TEAM_COLUMNS,
-      where: { "t.id": req.params.id, "m.user_id": req.userId },
-    });
-    if (!rows[0]) {
+    // scoped to the caller's membership, so non-members read as 404
+    const row = findTeamForUser(db, String(req.params.id), req.userId!);
+    if (!row) {
       res.status(404).json({ error: "team not found" });
       return;
     }
-    res.json(toTeam(rows[0]));
+    res.json(toTeam(row));
+  };
+}
+
+export function listTeams(db: Db): RequestHandler {
+  return (req, res) => {
+    const rows = listTeamsForUser(db, req.userId!);
+    res.json(rows.map(toTeam));
   };
 }
 
@@ -87,46 +85,30 @@ export function addMember(db: Db): RequestHandler {
       return;
     }
     const request: AddMemberRequest = { email: email.toLowerCase().trim() };
-    const teamId = req.params.id;
+    const teamId = String(req.params.id);
 
     // caller must be the team's owner (non-members read as 404, no leak)
-    const membership = selectWhere<{ role: TeamRole }>(db, "team_members", {
-      team_id: teamId,
-      user_id: req.userId,
-    });
-    if (!membership[0]) {
+    const membership = findMembership(db, teamId, req.userId!);
+    if (!membership) {
       res.status(404).json({ error: "team not found" });
       return;
     }
-    if (membership[0].role !== "owner") {
+    if (membership.role !== "owner") {
       res.status(403).json({ error: "only the team owner can add members" });
       return;
     }
 
-    // the user being added must already exist
-    const users = selectWhere<{ id: string; email: string }>(db, "users", {
-      email: request.email,
-    });
-    const user = users[0];
+    const user = findUserByEmail(db, request.email);
     if (!user) {
       res.status(404).json({ error: "user not found" });
       return;
     }
-
-    const already = selectWhere(db, "team_members", {
-      team_id: teamId,
-      user_id: user.id,
-    });
-    if (already[0]) {
+    if (isMember(db, teamId, user.id)) {
       res.status(409).json({ error: "user is already a member" });
       return;
     }
 
-    insert(db, "team_members", {
-      team_id: teamId,
-      user_id: user.id,
-      role: "member",
-    });
+    addMembership(db, { teamId, userId: user.id, role: "member" });
 
     const member: TeamMember = {
       id: user.id,
@@ -139,36 +121,13 @@ export function addMember(db: Db): RequestHandler {
 
 export function listMembers(db: Db): RequestHandler {
   return (req, res) => {
-    const teamId = req.params.id;
+    const teamId = String(req.params.id);
 
     // only members may view the roster (non-members read as 404)
-    const membership = selectWhere(db, "team_members", {
-      team_id: teamId,
-      user_id: req.userId,
-    });
-    if (!membership[0]) {
+    if (!isMember(db, teamId, req.userId!)) {
       res.status(404).json({ error: "team not found" });
       return;
     }
-
-    const members = selectJoin<TeamMember>(db, {
-      from: "team_members m JOIN users u ON u.id = m.user_id",
-      columns: "u.id, u.email, m.role",
-      where: { "m.team_id": teamId },
-      orderBy: "u.email",
-    });
-    res.json(members);
-  };
-}
-
-export function listTeams(db: Db): RequestHandler {
-  return (req, res) => {
-    const rows = selectJoin<TeamRow>(db, {
-      from: TEAMS_FROM,
-      columns: TEAM_COLUMNS,
-      where: { "m.user_id": req.userId },
-      orderBy: "t.created_at DESC",
-    });
-    res.json(rows.map(toTeam));
+    res.json(listTeamMembers(db, teamId));
   };
 }

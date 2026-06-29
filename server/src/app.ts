@@ -1,6 +1,6 @@
 import express from "express";
 import type { HealthResponse } from "@team-notes/shared";
-import type { Db } from "./db.js";
+import type { Db } from "./db/index.js";
 import { requireAuth } from "./requireAuth.js";
 import { register, login } from "./routes/auth.js";
 import {

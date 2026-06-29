@@ -7,8 +7,9 @@ import type {
   RegisterRequest,
   User,
 } from "@team-notes/shared";
-import { insert, type Db } from "../db.js";
+import type { Db } from "../db/index.js";
 import { signToken } from "../token.js";
+import { findUserByEmail, insertUser } from "../db/users.js";
 
 export function register(db: Db): RequestHandler {
   return async (req, res) => {
@@ -26,9 +27,7 @@ export function register(db: Db): RequestHandler {
     const request: RegisterRequest = { email, password };
 
     const normalizedEmail = request.email.toLowerCase().trim();
-    if (
-      db.prepare("SELECT 1 FROM users WHERE email = ?").get(normalizedEmail)
-    ) {
+    if (findUserByEmail(db, normalizedEmail)) {
       res.status(409).json({ error: "email already registered" });
       return;
     }
@@ -39,11 +38,11 @@ export function register(db: Db): RequestHandler {
       createdAt: new Date().toISOString(),
     };
     const passwordHash = await bcrypt.hash(request.password, 10);
-    insert(db, "users", {
+    insertUser(db, {
       id: user.id,
       email: user.email,
-      password_hash: passwordHash,
-      created_at: user.createdAt,
+      passwordHash,
+      createdAt: user.createdAt,
     });
 
     const body: AuthResponse = { token: signToken(user.id), user };
@@ -60,14 +59,7 @@ export function login(db: Db): RequestHandler {
     }
     const credentials: LoginRequest = { email, password };
 
-    const row = db
-      .prepare(
-        "SELECT id, email, password_hash, created_at FROM users WHERE email = ?",
-      )
-      .get(credentials.email.toLowerCase().trim()) as
-      | { id: string; email: string; password_hash: string; created_at: string }
-      | undefined;
-
+    const row = findUserByEmail(db, credentials.email.toLowerCase().trim());
     if (
       !row ||
       !(await bcrypt.compare(credentials.password, row.password_hash))
